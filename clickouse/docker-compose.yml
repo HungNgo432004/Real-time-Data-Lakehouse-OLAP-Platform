@@ -1,0 +1,25 @@
+services:
+  clickhouse-server:
+    image: clickhouse/clickhouse-server
+    env_file:
+      - .env
+    ports:
+      - 18123:8123
+      - 19000:9000
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - ./docker-data/clickhouse/data:/var/lib/clickhouse/
+      - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/custom.xml
+      - ./clickhouse-query-limit.xml:/etc/clickhouse-server/users.d/limits.xml
+    restart: always
+
+  # clickhouse-ui:
+  #   image: ghcr.io/caioricciuti/ch-ui:latest
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - 15521:5521
+  #   restart: always

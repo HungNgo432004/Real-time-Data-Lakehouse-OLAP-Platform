@@ -1,0 +1,56 @@
+# Environment variables
+.env
+*.env
+!.example.env
+
+# Docker storage & volumes
+docker-data/
+**/docker-data/
+
+# Python
+venv/
+.venv/
+env/
+local_code/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.log
+*.pot
+*.mo
+*.swp
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace

@@ -1,0 +1,12 @@
+services:
+  minio:
+    image: minio/minio
+    env_file:
+      - .env
+    ports:
+      - 19010:9000
+      - 19011:9001
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./docker-data/minio/data:/data
+    restart: always

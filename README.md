@@ -343,4 +343,3 @@ git push
 
 ## 📄 License
 Dự án được phân phối dưới giấy phép mã nguồn mở hoặc nội bộ của tổ chức. Vui lòng tham khảo tài liệu nội bộ trước khi sử dụng trong môi trường Production.
-"# Real-time-Data-Lakehouse-OLAP-Platform" 

@@ -1,0 +1,38 @@
+<clickhouse>
+
+    <!-- NETWORK -->
+    <listen_host>0.0.0.0</listen_host>
+    <listen_host>::</listen_host>
+
+    <!-- LOGGER -->
+    <logger>
+        <level>warning</level>
+        <log>/var/log/clickhouse-server/clickhouse.log</log>
+        <errorlog>/var/log/clickhouse-server/error.log</errorlog>
+        <size>100M</size>
+        <count>5</count>
+    </logger>
+
+    <!-- DISABLE HEAVY LOGS -->
+    <part_log remove="1"/>
+    <metric_log remove="1"/>
+    <trace_log remove="1"/>
+
+    <!-- KEEP QUERY LOG WITH TTL -->
+    <query_log>
+        <ttl>event_date + INTERVAL 1 DAY</ttl>
+    </query_log>
+
+    <text_log>
+        <ttl>event_date + INTERVAL 1 DAY</ttl>
+    </text_log>
+
+    <!-- MEMORY CONTROL (SERVER LEVEL) -->
+    <max_server_memory_usage>9000000000</max_server_memory_usage>          <!-- ~9GB -->
+    <max_memory_usage_for_all_queries>7000000000</max_memory_usage_for_all_queries>  <!-- ~7GB -->
+
+    <!-- CACHE -->
+    <uncompressed_cache_size>4000000000</uncompressed_cache_size>  <!-- 4GB -->
+    <mark_cache_size>2000000000</mark_cache_size>                  <!-- 2GB -->
+
+</clickhouse>

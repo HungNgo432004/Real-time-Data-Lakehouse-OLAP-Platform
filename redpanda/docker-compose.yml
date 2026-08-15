@@ -1,0 +1,186 @@
+networks:
+  redpanda_network:
+    driver: bridge
+
+services:
+  redpanda-0:
+    env_file:
+      - .env
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      # Address the broker advertises to clients that connect to the Kafka API.
+      # Use the internal addresses to connect to the Redpanda brokers'
+      # from inside the same Docker network.
+      # Use the external addresses to connect to the Redpanda brokers'
+      # from outside the Docker network.
+      - --advertise-kafka-addr internal://redpanda-0:9092,external://${KAFKA_HOST_IP}:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      # Address the broker advertises to clients that connect to the HTTP Proxy.
+      - --advertise-pandaproxy-addr internal://redpanda-0:8082,external://${KAFKA_HOST_IP}:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      # Redpanda brokers use the RPC API to communicate with each other internally.
+      - --rpc-addr redpanda-0:33145
+      - --advertise-rpc-addr redpanda-0:33145
+      # Mode dev-container uses well-known configuration properties for development in containers.
+      - --mode dev-container
+      # Tells Seastar (the framework Redpanda uses under the hood) to use 1 core on the system.
+      - --smp 1
+      - --memory=1536M
+      - --default-log-level=info
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
+    container_name: redpanda-0
+    volumes:
+      - ./docker-data/redpanda-0:/var/lib/redpanda/data
+    networks:
+      - redpanda_network
+    restart: always
+    ports:
+      - 18081:18081
+      - 18082:18082
+      - 19092:19092
+      - 19644:9644
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+  redpanda-1:
+    profiles: ["cluster"]
+    env_file:
+      - .env
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:29092
+      - --advertise-kafka-addr internal://redpanda-1:9092,external://${KAFKA_HOST_IP}:29092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:28082
+      - --advertise-pandaproxy-addr internal://redpanda-1:8082,external://${KAFKA_HOST_IP}:28082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:28081
+      - --rpc-addr redpanda-1:33145
+      - --advertise-rpc-addr redpanda-1:33145
+      - --mode dev-container
+      - --smp 1
+      - --memory=3G
+      - --default-log-level=info
+      - --seeds redpanda-0:33145
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
+    container_name: redpanda-1
+    volumes:
+      - ./docker-data/redpanda-1:/var/lib/redpanda/data
+    networks:
+      - redpanda_network
+    restart: always
+    ports:
+      - 28081:28081
+      - 28082:28082
+      - 29092:29092
+      - 29644:9644
+    depends_on:
+      - redpanda-0
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 4G
+  redpanda-2:
+    profiles: ["cluster"]
+    env_file:
+      - .env
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:39092
+      - --advertise-kafka-addr internal://redpanda-2:9092,external://${KAFKA_HOST_IP}:39092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:38082
+      - --advertise-pandaproxy-addr internal://redpanda-2:8082,external://${KAFKA_HOST_IP}:38082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:38081
+      - --rpc-addr redpanda-2:33145
+      - --advertise-rpc-addr redpanda-2:33145
+      - --mode dev-container
+      - --smp 1
+      - --memory=3G
+      - --default-log-level=info
+      - --seeds redpanda-0:33145
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
+    container_name: redpanda-2
+    volumes:
+      - ./docker-data/redpanda-2:/var/lib/redpanda/data
+    networks:
+      - redpanda_network
+    restart: always
+    ports:
+      - 38081:38081
+      - 38082:38082
+      - 39092:39092
+      - 39644:9644
+    depends_on:
+      - redpanda-0
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 4G
+  console:
+    container_name: redpanda-console
+    image: docker.redpanda.com/redpandadata/console:v3.7.1
+    networks:
+      - redpanda_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 512M
+    restart: always
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        schemaRegistry:
+          enabled: false
+        redpanda:
+          adminApi:
+            enabled: false
+        kafka:
+          brokers: ["redpanda-0:9092"]
+        kafkaConnect:
+          enabled: true
+          clusters:
+            - name: "debezium-cluster"
+              url: "http://debezium:8083"
+    ports:
+      - 8086:8080
+    depends_on:
+      - redpanda-0
+  debezium:
+    image: debezium/connect:3.0.0.Final
+    ports:
+      - "8083:8083"
+    environment:
+      - KAFKA_HEAP_OPTS=-Xms256M -Xmx1G
+      - BOOTSTRAP_SERVERS=redpanda-0:9092
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=debezium_configs
+      - OFFSET_STORAGE_TOPIC=debezium_offsets
+      - STATUS_STORAGE_TOPIC=debezium_statuses
+      - CONFIG_STORAGE_REPLICATION_FACTOR=1
+      - OFFSET_STORAGE_REPLICATION_FACTOR=1
+      - STATUS_STORAGE_REPLICATION_FACTOR=1
+      - KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_PLUGIN_PATH=/kafka/connect
+    volumes:
+      - ./debezium-connector-starrocks:/kafka/connect/debezium-connector-starrocks
+      - ./kafka-connect-transform-common:/kafka/connect/kafka-connect-transform-common
+    networks:
+      - redpanda_network
+    restart: always
+    depends_on:
+      - redpanda-0
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1.5G

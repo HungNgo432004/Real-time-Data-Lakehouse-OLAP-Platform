@@ -1,0 +1,14 @@
+trino
+psycopg2-binary
+pymssql
+PyMySQL
+clickhouse-connect
+pyhive
+couchbase-sqlalchemy
+sqlalchemy_dremio
+elasticsearch-dbapi
+shillelagh[gsheetsapi]
+sqlalchemy-bigquery
+snowflake-sqlalchemy
+flask_cors
+starrocks

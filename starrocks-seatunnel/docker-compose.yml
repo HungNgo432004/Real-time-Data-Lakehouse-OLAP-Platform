@@ -1,0 +1,165 @@
+networks:
+  starrocks-seatunnel-network:
+    driver: bridge
+
+services:
+  starrocks-fe:
+    image: starrocks/fe-ubuntu:4.0-latest
+    hostname: starrocks-fe
+    container_name: starrocks-fe
+    user: root
+    command: |
+      /opt/starrocks/fe/bin/start_fe.sh --host_type FQDN
+    ports:
+      - 8030:8030
+      - 9020:9020
+      - 9030:9030
+    healthcheck:
+      test: 'mysql -u root -h 127.0.0.1 -P 9030 -e "show frontends\G" |grep "Alive: true"'
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: always
+    volumes:
+      - ./docker-data/starrocks/fe/meta:/opt/starrocks/fe/meta
+      - ./docker-data/starrocks/fe/log:/opt/starrocks/fe/log
+    networks:
+      - starrocks-seatunnel-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  starrocks-be:
+    image: starrocks/be-ubuntu:4.0-latest
+    command:
+      - /bin/bash
+      - -c
+      - |
+        ulimit -u 65535;
+        ulimit -n 65535;
+        sleep 15s
+        mysql --connect-timeout 2 -h starrocks-fe -P 9030 -u root -e "ALTER SYSTEM ADD BACKEND \"starrocks-be:9050\";"
+        mysql --connect-timeout 2 -h starrocks-fe -P 9030 -u root -e "CREATE DATABASE IF NOT EXISTS warehouse;"
+        /opt/starrocks/be/bin/start_be.sh
+    ports:
+      - 8040:8040
+    hostname: starrocks-be
+    container_name: starrocks-be
+    user: root
+    depends_on:
+      starrocks-fe:
+        condition: service_healthy
+    healthcheck:
+      test: 'mysql -u root -h starrocks-fe -P 9030 -e "SHOW BACKENDS\G" |grep "Alive: true"'
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: always
+    volumes:
+      - ./docker-data/starrocks/be/storage:/opt/starrocks/be/storage
+      - ./docker-data/starrocks/be/log:/opt/starrocks/be/log
+    networks:
+      - starrocks-seatunnel-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+
+  seatunnel-master:
+    image: apache/seatunnel:2.3.13
+    hostname: seatunnel-master
+    container_name: seatunnel-master
+    environment:
+      - JVM_HEAP_OPTS="-Xms512m -Xmx768m"
+      - HZ_NETWORK_RESTAPI_ENABLED=true
+      - HZ_NETWORK_PORT_PORT=5801
+      - HZ_NETWORK_PORT_AUTO_INCREMENT=false
+    entrypoint: >
+      /bin/sh -c "/opt/seatunnel/bin/seatunnel-cluster.sh -r master"    
+    ports:
+      - "5801:5801"
+      - "8080:8080"
+    volumes:
+      - ./hazelcast.yaml:/opt/seatunnel/config/hazelcast-master.yaml
+      - ./seatunnel.yaml:/opt/seatunnel/config/seatunnel.yaml
+      - ./jobs:/opt/seatunnel/jobs
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'   
+          memory: 1G
+    networks:
+      - starrocks-seatunnel-network
+
+  seatunnel-worker:
+    image: apache/seatunnel:2.3.13
+    hostname: seatunnel-worker
+    container_name: seatunnel-worker
+    environment:
+      - JVM_HEAP_OPTS="-Xms1g -Xmx1.5g"
+      - HZ_NETWORK_RESTAPI_ENABLED=true
+      - HZ_NETWORK_PORT_PORT=5801
+      - HZ_NETWORK_PORT_AUTO_INCREMENT=false
+    entrypoint: >
+      /bin/sh -c "/opt/seatunnel/bin/seatunnel-cluster.sh -r worker" 
+    depends_on:
+      - seatunnel-master
+    deploy: 
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    volumes:
+      - ./hazelcast.yaml:/opt/seatunnel/config/hazelcast-worker.yaml
+      - ./seatunnel.yaml:/opt/seatunnel/config/seatunnel.yaml
+    restart: always
+    networks:
+      - starrocks-seatunnel-network
+
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:main
+    container_name: prometheus
+    hostname: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    restart: always
+    networks:
+      - starrocks-seatunnel-network
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker-data/prometheus/prom_data:/prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:main
+    container_name: grafana
+    hostname: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    ports:
+      - 3000:3000
+    restart: always
+    networks:
+      - starrocks-seatunnel-network
+    volumes:
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G

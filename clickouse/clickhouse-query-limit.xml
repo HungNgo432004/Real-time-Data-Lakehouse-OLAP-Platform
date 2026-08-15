@@ -1,0 +1,32 @@
+<clickhouse>
+    <profiles>
+        <default>
+
+            <!-- MEMORY PER QUERY -->
+            <max_memory_usage>1000000000</max_memory_usage> <!-- 1GB -->
+
+            <!-- CPU -->
+            <max_threads>4</max_threads>
+
+            <!-- TIMEOUT -->
+            <max_execution_time>60</max_execution_time>
+
+            <!-- READ LIMIT -->
+            <max_rows_to_read>100000000</max_rows_to_read>
+            <max_bytes_to_read>5000000000</max_bytes_to_read>
+
+            <!-- SPILL TO DISK -->
+            <max_bytes_before_external_group_by>500000000</max_bytes_before_external_group_by>
+            <max_bytes_before_external_sort>500000000</max_bytes_before_external_sort>
+
+            <!-- JOIN LIMIT -->
+            <max_bytes_in_join>500000000</max_bytes_in_join>
+            <join_algorithm>auto</join_algorithm>
+
+            <!-- RESULT LIMIT -->
+            <max_result_rows>10000000</max_result_rows>
+            <max_result_bytes>1000000000</max_result_bytes>
+
+        </default>
+    </profiles>
+</clickhouse>
